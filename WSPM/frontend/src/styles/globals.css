@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles */
+body {
+  @apply bg-gray-50 text-gray-800;
+  font-family: system-ui, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  @apply font-bold;
+}
+
+button {
+  @apply transition duration-200;
+}

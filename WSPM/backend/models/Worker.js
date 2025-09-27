@@ -7,9 +7,8 @@ const WorkerSchema = new mongoose.Schema(
       type: String,
       required: true,
       validate: {
-        validator: (v) => /^[A-Za-z\s]+$/.test(v),
-        message:
-          "Name must contain only letters and spaces (no special characters)",
+        validator: (v) => v && v.trim().length > 0,
+        message: "Name is required",
       },
     },
     dob: { type: Date, required: true },
@@ -18,16 +17,16 @@ const WorkerSchema = new mongoose.Schema(
         type: String,
         required: true,
         validate: {
-          validator: (v) => /^\d{10}$/.test(v),
-          message: "Phone number must be exactly 10 digits",
+          validator: (v) => v && v.trim().length > 0,
+          message: "Phone number is required",
         },
       },
-      email: { type: String },
-      emergencyContact: { type: String },
+      email: { type: String, default: "" },
+      emergencyContact: { type: String, default: "" },
     },
     role: { type: String, required: true }, // e.g., Welder, Manager
     hireDate: { type: Date, default: Date.now },
-    shiftSchedule: { type: String }, // e.g., Morning, Evening, Night
+    shiftSchedule: { type: String, default: "" }, // e.g., Morning, Evening, Night
     certifications: [String], // list of certifications
     trainingHistory: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Training" },
@@ -38,4 +37,5 @@ const WorkerSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+module.exports = mongoose.model("Worker", WorkerSchema);
 module.exports = mongoose.model("Worker", WorkerSchema);
