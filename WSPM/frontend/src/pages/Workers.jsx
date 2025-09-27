@@ -62,7 +62,8 @@ export default function Workers() {
   };
 
   const loadNextWorkerId = async () => {
-    if (!editing) {
+    // Only load next worker ID when NOT editing and workerId is empty
+    if (!editing && !form.workerId) {
       try {
         const response = await getNextWorkerId();
         setForm((prev) => ({ ...prev, workerId: response.nextWorkerId }));
@@ -187,7 +188,10 @@ export default function Workers() {
     });
     setEditing(null);
     setErrors({});
-    loadNextWorkerId();
+    // Load next worker ID only after form is reset and not editing
+    setTimeout(() => {
+      loadNextWorkerId();
+    }, 100);
   };
 
   const handleEdit = (w) => {
@@ -351,15 +355,15 @@ export default function Workers() {
               </label>
               <input
                 name="workerId"
-                placeholder="Auto-generated"
+                placeholder={editing ? "Worker ID (cannot be changed)" : "Auto-generated"}
                 value={form.workerId}
                 onChange={handleChange}
-                disabled={!editing}
-                className={`w-full border rounded-lg p-3 transition-all ${!editing
-                  ? "bg-gray-100"
-                  : "border-gray-300 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
-                  } ${errors.workerId ? "border-red-500" : ""}`}
+                disabled={true} // Always disable Worker ID field
+                className="w-full border rounded-lg p-3 transition-all bg-gray-100 cursor-not-allowed"
               />
+              <p className="text-xs text-gray-500">
+                {editing ? "Worker ID cannot be modified after creation" : "Worker ID will be auto-generated"}
+              </p>
               {errors.workerId && (
                 <p className="text-red-500 text-xs">{errors.workerId}</p>
               )}
