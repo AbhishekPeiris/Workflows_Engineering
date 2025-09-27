@@ -47,7 +47,7 @@ export default function PayrollForm({ onGenerate }) {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">Base Rate (₹/hour) *</label>
+          <label className="text-sm font-medium text-gray-700">Base Rate (LKR /hour) *</label>
           <input
             name="baseRate"
             type="number"
@@ -75,7 +75,7 @@ export default function PayrollForm({ onGenerate }) {
       {form.baseRate && form.hoursWorked && (
         <div className="bg-green-50 p-4 rounded-lg">
           <p className="text-green-800 font-medium">
-            💰 Calculated Pay: ₹{(parseFloat(form.baseRate) * parseFloat(form.hoursWorked)).toLocaleString()}
+            💰 Calculated Pay: LKR {(parseFloat(form.baseRate) * parseFloat(form.hoursWorked)).toLocaleString()}
           </p>
         </div>
       )}

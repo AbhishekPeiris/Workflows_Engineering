@@ -51,9 +51,22 @@ exports.createWorker = async (req, res) => {
       }
     }
 
-    // Generate QR code data URL
-    const qrData = `worker:${workerId}`;
-    const qrCode = await QRCode.toDataURL(qrData);
+    // Generate high-quality QR code with optimized settings
+    const qrData = workerId; // Simple format for better detection
+    const qrCode = await QRCode.toDataURL(qrData, {
+      type: 'image/png',
+      quality: 1.0,
+      margin: 2,
+      color: {
+        dark: '#000000',  // Black modules
+        light: '#FFFFFF'  // White background
+      },
+      width: 512,  // High resolution
+      errorCorrectionLevel: 'H', // High error correction
+      rendererOpts: {
+        quality: 1.0
+      }
+    });
 
     // Structure the data to match the schema
     const workerData = {

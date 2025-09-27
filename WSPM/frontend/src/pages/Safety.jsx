@@ -9,8 +9,11 @@ export default function Safety() {
     vest: false,
     gloves: false,
     boots: false,
-    harness: false
+    harness: false,
+    issues: ""
   });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     loadInspections();
@@ -19,27 +22,99 @@ export default function Safety() {
   const loadInspections = async () => {
     try {
       const data = await getInspections();
-      setInspections(data);
-    } catch {
-      alert("❌ Failed to load inspections");
+      console.log("Loaded inspections:", data);
+      setInspections(data || []);
+    } catch (error) {
+      console.error("Failed to load inspections:", error);
+      alert("❌ Failed to load safety inspections: " + (error.response?.data?.error || error.message));
     }
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.workerId?.trim()) {
+      newErrors.workerId = "Worker ID is required";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleChange = (e) => {
-    const { name, checked } = e.target;
-    setForm({ ...form, [name]: checked });
+    const { name, checked, value, type } = e.target;
+    const fieldValue = type === 'checkbox' ? checked : value;
+
+    setForm({ ...form, [name]: fieldValue });
+
+    // Clear error for this field when user starts typing/checking
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
   };
 
   const handleSubmit = async () => {
-    if (!form.workerId) return alert("Worker ID required!");
-    try {
-      await createInspection(form);
-      alert("✅ Safety inspection logged");
-      setForm({ workerId: "", helmet: false, vest: false, gloves: false, boots: false, harness: false });
-      loadInspections();
-    } catch {
-      alert("❌ Failed to log inspection");
+    if (!validateForm()) {
+      alert("⚠️ Please fix the validation errors before submitting");
+      return;
     }
+
+    setLoading(true);
+    try {
+      const inspectionData = {
+        workerId: form.workerId.trim(),
+        helmet: form.helmet,
+        vest: form.vest,
+        gloves: form.gloves,
+        boots: form.boots,
+        harness: form.harness,
+        issues: form.issues.trim()
+      };
+
+      console.log("Submitting safety inspection:", inspectionData);
+
+      await createInspection(inspectionData);
+      alert("✅ Safety inspection recorded successfully");
+
+      // Reset form
+      setForm({
+        workerId: "",
+        helmet: false,
+        vest: false,
+        gloves: false,
+        boots: false,
+        harness: false,
+        issues: ""
+      });
+      setErrors({});
+
+      // Reload inspections
+      await loadInspections();
+
+    } catch (error) {
+      console.error("Safety inspection submission failed:", error);
+      const errorMessage = error.response?.data?.error || error.message || "Unknown error occurred";
+      alert("❌ Failed to record safety inspection: " + errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateFormScore = () => {
+    const checkedItems = [form.helmet, form.vest, form.gloves, form.boots, form.harness].filter(Boolean).length;
+    return Math.round((checkedItems / 5) * 100);
+  };
+
+  const getScoreColor = (score) => {
+    if (score >= 80) return 'text-green-600';
+    if (score >= 60) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBadgeColor = (score) => {
+    if (score >= 80) return 'bg-green-100 text-green-800';
+    if (score >= 60) return 'bg-yellow-100 text-yellow-800';
+    return 'bg-red-100 text-red-800';
   };
 
   const safetyItems = [
@@ -77,42 +152,72 @@ export default function Safety() {
             <h3 className="text-xl font-semibold text-gray-800">Conduct Safety Inspection</h3>
           </div>
 
-          <div className="space-y-4">
+          <div className="space-y-6">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Worker ID *</label>
               <input
                 name="workerId"
-                placeholder="Enter worker ID"
+                placeholder="Enter worker ID (e.g., W001)"
                 value={form.workerId}
-                onChange={(e) => setForm({ ...form, workerId: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                onChange={handleChange}
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.workerId ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
+              {errors.workerId && <p className="text-red-500 text-xs">{errors.workerId}</p>}
             </div>
 
             <div>
               <label className="text-sm font-medium text-gray-700 mb-3 block">Safety Equipment Check</label>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {safetyItems.map((item) => (
-                  <label key={item.key} className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg border hover:bg-gray-100 transition-colors cursor-pointer">
+                  <label key={item.key} className={`flex items-center space-x-3 p-4 rounded-lg border transition-colors cursor-pointer ${form[item.key] ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                    }`}>
                     <input
                       type="checkbox"
                       name={item.key}
                       checked={form[item.key]}
                       onChange={handleChange}
-                      className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                      className="w-5 h-5 text-green-600 border-gray-300 rounded focus:ring-green-500"
                     />
                     <span className="text-2xl">{item.icon}</span>
                     <span className="font-medium text-gray-700">{item.label}</span>
+                    {form[item.key] && <span className="ml-auto text-green-600">✓</span>}
                   </label>
                 ))}
               </div>
             </div>
 
+            {/* Live Score Preview */}
+            <div className="bg-blue-50 p-4 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-blue-800 font-medium">Current Compliance Score</p>
+                  <p className="text-blue-600 text-sm">Based on selected safety equipment</p>
+                </div>
+                <div className={`text-3xl font-bold ${getScoreColor(calculateFormScore())}`}>
+                  {calculateFormScore()}%
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">Additional Notes</label>
+              <textarea
+                name="issues"
+                placeholder="Any issues or observations about the safety equipment..."
+                value={form.issues}
+                onChange={handleChange}
+                rows={3}
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+              />
+            </div>
+
             <button
               onClick={handleSubmit}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 shadow-lg"
+              disabled={loading}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-medium hover:from-purple-600 hover:to-pink-600 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              🛡️ Submit Inspection
+              {loading ? "Recording..." : "🛡️ Record Safety Inspection"}
             </button>
           </div>
         </div>
@@ -137,25 +242,56 @@ export default function Safety() {
                 </div>
               </div>
             ) : (
-              inspections.map((i, index) => (
-                <div key={i._id} className={`p-4 rounded-lg border ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:shadow-md transition-shadow`}>
-                  <div className="flex items-center justify-between">
+              inspections.map((inspection, index) => (
+                <div key={inspection._id} className={`p-6 rounded-lg border ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:shadow-md transition-shadow`}>
+                  <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-4">
                       <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                         <span className="text-white font-bold">🛡️</span>
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-800">Worker {i.workerId}</h4>
-                        <p className="text-sm text-gray-600">Inspection Date: {new Date().toLocaleDateString()}</p>
+                        <h4 className="font-semibold text-gray-800">
+                          {inspection.workerName || 'Unknown Worker'} ({inspection.workerId})
+                        </h4>
+                        <p className="text-sm text-gray-600">
+                          Inspection Date: {new Date(inspection.createdAt || inspection.date).toLocaleDateString()}
+                        </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className={`text-2xl font-bold ${i.complianceScore >= 80 ? 'text-green-600' : i.complianceScore >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {i.complianceScore}%
+                      <div className={`text-2xl font-bold ${getScoreColor(inspection.complianceScore)}`}>
+                        {inspection.complianceScore}%
                       </div>
-                      <p className="text-xs text-gray-500">Compliance Score</p>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreBadgeColor(inspection.complianceScore)}`}>
+                        {inspection.passedItems || 0}/{inspection.totalItems || 5} items
+                      </span>
                     </div>
                   </div>
+
+                  {/* Safety Equipment Status */}
+                  {inspection.checklist && (
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-4">
+                      {safetyItems.map((item) => (
+                        <div key={item.key} className={`flex items-center space-x-2 p-2 rounded ${inspection.checklist[item.key] ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                          <span className="text-sm">{item.icon}</span>
+                          <span className="text-xs font-medium">{item.label}</span>
+                          <span className="ml-auto">
+                            {inspection.checklist[item.key] ? '✓' : '✗'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Issues/Notes */}
+                  {inspection.issues && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                      <p className="text-yellow-800 text-sm">
+                        <strong>Notes:</strong> {inspection.issues}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))
             )}

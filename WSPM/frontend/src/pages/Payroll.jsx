@@ -3,7 +3,14 @@ import { generatePayroll, getPayrolls } from "../services/payrollService";
 
 export default function Payroll() {
   const [records, setRecords] = useState([]);
-  const [form, setForm] = useState({ workerId: "", period: "", baseRate: "", hoursWorked: "" });
+  const [form, setForm] = useState({
+    workerId: "",
+    period: "",
+    baseRate: "",
+    hoursWorked: ""
+  });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     loadPayrolls();
@@ -12,26 +19,87 @@ export default function Payroll() {
   const loadPayrolls = async () => {
     try {
       const data = await getPayrolls();
-      setRecords(data);
-    } catch {
-      alert("❌ Failed to load payrolls");
+      console.log("Loaded payrolls:", data);
+      setRecords(data || []);
+    } catch (error) {
+      console.error("Failed to load payrolls:", error);
+      alert("❌ Failed to load payrolls: " + (error.response?.data?.error || error.message));
     }
   };
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!form.workerId?.trim()) {
+      newErrors.workerId = "Worker ID is required";
+    }
+
+    if (!form.period?.trim()) {
+      newErrors.period = "Period is required";
+    }
+
+    if (!form.baseRate || parseFloat(form.baseRate) <= 0) {
+      newErrors.baseRate = "Base rate must be greater than 0";
+    }
+
+    if (!form.hoursWorked || parseFloat(form.hoursWorked) <= 0) {
+      newErrors.hoursWorked = "Hours worked must be greater than 0";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
+
+    // Clear error for this field when user starts typing
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
+  };
 
   const handleGenerate = async () => {
-    if (!form.workerId || !form.period || !form.baseRate || !form.hoursWorked) {
-      return alert("All fields are required!");
+    if (!validateForm()) {
+      alert("⚠️ Please fix the validation errors before submitting");
+      return;
     }
+
+    setLoading(true);
     try {
-      await generatePayroll(form);
-      alert("✅ Payroll Generated");
+      const payrollData = {
+        workerId: form.workerId.trim(),
+        period: form.period.trim(),
+        baseRate: parseFloat(form.baseRate),
+        hoursWorked: parseFloat(form.hoursWorked)
+      };
+
+      console.log("Submitting payroll data:", payrollData);
+
+      await generatePayroll(payrollData);
+      alert("✅ Payroll Generated Successfully");
+
+      // Reset form
       setForm({ workerId: "", period: "", baseRate: "", hoursWorked: "" });
-      loadPayrolls();
-    } catch {
-      alert("❌ Failed to generate payroll");
+      setErrors({});
+
+      // Reload payrolls
+      await loadPayrolls();
+
+    } catch (error) {
+      console.error("Payroll generation failed:", error);
+      const errorMessage = error.response?.data?.error || error.message || "Unknown error occurred";
+      alert("❌ Failed to generate payroll: " + errorMessage);
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const calculateTotalPay = () => {
+    const rate = parseFloat(form.baseRate) || 0;
+    const hours = parseFloat(form.hoursWorked) || 0;
+    return rate * hours;
   };
 
   return (
@@ -68,10 +136,13 @@ export default function Payroll() {
                 name="workerId"
                 value={form.workerId}
                 onChange={handleChange}
-                placeholder="Enter worker ID"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                placeholder="Enter worker ID (e.g., W001)"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.workerId ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
+              {errors.workerId && <p className="text-red-500 text-xs">{errors.workerId}</p>}
             </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Period *</label>
               <input
@@ -79,46 +150,59 @@ export default function Payroll() {
                 value={form.period}
                 onChange={handleChange}
                 placeholder="e.g., 2025-01"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.period ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
+              {errors.period && <p className="text-red-500 text-xs">{errors.period}</p>}
             </div>
+
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Base Rate (₹/hour) *</label>
+              <label className="text-sm font-medium text-gray-700">Base Rate (LKR/hour) *</label>
               <input
                 name="baseRate"
                 type="number"
+                step="0.01"
+                min="0"
                 value={form.baseRate}
                 onChange={handleChange}
                 placeholder="Rate per hour"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.baseRate ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
+              {errors.baseRate && <p className="text-red-500 text-xs">{errors.baseRate}</p>}
             </div>
+
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">Hours Worked *</label>
               <input
                 name="hoursWorked"
                 type="number"
+                step="0.1"
+                min="0"
                 value={form.hoursWorked}
                 onChange={handleChange}
                 placeholder="Total hours"
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.hoursWorked ? 'border-red-500' : 'border-gray-300'
+                  }`}
               />
+              {errors.hoursWorked && <p className="text-red-500 text-xs">{errors.hoursWorked}</p>}
             </div>
           </div>
 
           {form.baseRate && form.hoursWorked && (
             <div className="bg-green-50 p-4 rounded-lg mb-4">
               <p className="text-green-800 font-medium">
-                💰 Calculated Pay: ₹{(parseFloat(form.baseRate) * parseFloat(form.hoursWorked)).toLocaleString()}
+                💰 Calculated Pay: LKR {calculateTotalPay().toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           )}
 
           <button
             onClick={handleGenerate}
-            className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:from-green-600 hover:to-blue-600 transition-all transform hover:scale-105 shadow-lg"
+            disabled={loading}
+            className="bg-gradient-to-r from-green-500 to-blue-500 text-white px-6 py-3 rounded-lg font-medium hover:from-green-600 hover:to-blue-600 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            💳 Generate Payroll
+            {loading ? "Generating..." : "💳 Generate Payroll"}
           </button>
         </div>
 
@@ -134,16 +218,18 @@ export default function Payroll() {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left p-4 font-semibold text-gray-700">Worker ID</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Worker Name</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Period</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Hours</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Rate</th>
                   <th className="text-left p-4 font-semibold text-gray-700">Total Pay</th>
+                  <th className="text-left p-4 font-semibold text-gray-700">Status</th>
                 </tr>
               </thead>
               <tbody>
                 {records.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="text-center p-8 text-gray-500">
+                    <td colSpan="7" className="text-center p-8 text-gray-500">
                       <div className="flex flex-col items-center">
                         <svg className="w-12 h-12 text-gray-300 mb-3" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" />
@@ -153,13 +239,24 @@ export default function Payroll() {
                     </td>
                   </tr>
                 ) : (
-                  records.map((r, index) => (
-                    <tr key={r._id} className={`border-t hover:bg-orange-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                      <td className="p-4 font-medium text-gray-900">{r.workerId}</td>
-                      <td className="p-4 text-gray-700">{r.period}</td>
-                      <td className="p-4 text-gray-700">{r.hoursWorked} hrs</td>
-                      <td className="p-4 text-gray-700">₹{r.baseRate}/hr</td>
-                      <td className="p-4 font-semibold text-green-600">₹{r.totalPay?.toLocaleString()}</td>
+                  records.map((record, index) => (
+                    <tr key={record._id} className={`border-t hover:bg-orange-50 transition-colors ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                      <td className="p-4 font-medium text-gray-900">{record.workerId}</td>
+                      <td className="p-4 text-gray-700">{record.workerName || 'N/A'}</td>
+                      <td className="p-4 text-gray-700">{record.period}</td>
+                      <td className="p-4 text-gray-700">{record.hoursWorked} hrs</td>
+                      <td className="p-4 text-gray-700">LKR {parseFloat(record.baseRate).toLocaleString('en-US', { minimumFractionDigits: 2 })}/hr</td>
+                      <td className="p-4 font-semibold text-green-600">
+                        LKR {parseFloat(record.totalPay).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${record.status === 'Paid'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                          {record.status || 'Pending'}
+                        </span>
+                      </td>
                     </tr>
                   ))
                 )}

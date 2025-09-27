@@ -232,6 +232,70 @@ export default function Workers() {
     setSearchQuery(e.target.value);
   };
 
+  // Add QR download function
+  const downloadQRCode = async (worker) => {
+    try {
+      if (!worker.qrCode) {
+        alert("❌ QR Code not available for this worker");
+        return;
+      }
+
+      // Create a link element and trigger download
+      const link = document.createElement('a');
+      link.href = worker.qrCode;
+      link.download = `${worker.workerId}_${worker.name.replace(/\s+/g, '_')}_QR.png`;
+
+      // Append to body, click, and remove
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      alert(`✅ QR Code downloaded for ${worker.name} (${worker.workerId})`);
+    } catch (error) {
+      console.error("Download failed:", error);
+      alert("❌ Failed to download QR Code");
+    }
+  };
+
+  // Add bulk QR download function
+  const downloadAllQRCodes = async () => {
+    if (filteredWorkers.length === 0) {
+      alert("❌ No workers to download QR codes for");
+      return;
+    }
+
+    const workersWithQR = filteredWorkers.filter(w => w.qrCode);
+    if (workersWithQR.length === 0) {
+      alert("❌ No QR codes available to download");
+      return;
+    }
+
+    if (!window.confirm(`Download QR codes for ${workersWithQR.length} workers?`)) {
+      return;
+    }
+
+    try {
+      // Download each QR code with a small delay to prevent browser blocking
+      for (let i = 0; i < workersWithQR.length; i++) {
+        const worker = workersWithQR[i];
+
+        setTimeout(() => {
+          const link = document.createElement('a');
+          link.href = worker.qrCode;
+          link.download = `${worker.workerId}_${worker.name.replace(/\s+/g, '_')}_QR.png`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }, i * 200); // 200ms delay between each download
+      }
+
+      alert(`✅ Downloading ${workersWithQR.length} QR codes...`);
+    } catch (error) {
+      console.error("Bulk download failed:", error);
+      alert("❌ Failed to download QR codes");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 p-6">
       {/* Header */}
@@ -292,8 +356,8 @@ export default function Workers() {
                 onChange={handleChange}
                 disabled={!editing}
                 className={`w-full border rounded-lg p-3 transition-all ${!editing
-                    ? "bg-gray-100"
-                    : "border-gray-300 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                  ? "bg-gray-100"
+                  : "border-gray-300 focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                   } ${errors.workerId ? "border-red-500" : ""}`}
               />
               {errors.workerId && (
@@ -456,6 +520,13 @@ export default function Workers() {
                 </p>
               </div>
               <div className="flex items-center space-x-2">
+                {/* <button
+                  onClick={downloadAllQRCodes}
+                  disabled={filteredWorkers.length === 0}
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  📥 Download All QRs
+                </button> */}
                 <div className="relative">
                   <input
                     type="text"
@@ -502,6 +573,9 @@ export default function Workers() {
                     Hire Date
                   </th>
                   <th className="text-left p-4 font-semibold text-gray-700">
+                    QR Code
+                  </th>
+                  <th className="text-left p-4 font-semibold text-gray-700">
                     Actions
                   </th>
                 </tr>
@@ -509,7 +583,7 @@ export default function Workers() {
               <tbody>
                 {filteredWorkers.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="text-center p-8 text-gray-500">
+                    <td colSpan="7" className="text-center p-8 text-gray-500">
                       <div className="flex flex-col items-center">
                         <svg
                           className="w-12 h-12 text-gray-300 mb-3"
@@ -543,6 +617,26 @@ export default function Workers() {
                       <td className="p-4 text-gray-700">{w.contact?.phone || "N/A"}</td>
                       <td className="p-4 text-gray-600">
                         {w.hireDate ? new Date(w.hireDate).toLocaleDateString() : "-"}
+                      </td>
+                      <td className="p-4">
+                        {w.qrCode ? (
+                          <div className="flex items-center space-x-2">
+                            <img
+                              src={w.qrCode}
+                              alt="QR Code"
+                              className="w-8 h-8 border rounded"
+                            />
+                            <button
+                              onClick={() => downloadQRCode(w)}
+                              className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-1 rounded text-xs font-medium hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105"
+                              title="Download QR Code"
+                            >
+                              📥
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-sm">No QR</span>
+                        )}
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
@@ -626,8 +720,8 @@ export default function Workers() {
                       <p><span className="font-medium">Shift Schedule:</span> {viewingWorker.shiftSchedule || "N/A"}</p>
                       <p><span className="font-medium">Compliance Score:</span>
                         <span className={`ml-2 px-2 py-1 rounded-full text-xs ${viewingWorker.complianceScore >= 90 ? 'bg-green-100 text-green-800' :
-                            viewingWorker.complianceScore >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-red-100 text-red-800'
+                          viewingWorker.complianceScore >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
                           }`}>
                           {viewingWorker.complianceScore}%
                         </span>
@@ -638,11 +732,25 @@ export default function Workers() {
                   {viewingWorker.qrCode && (
                     <div>
                       <h4 className="font-semibold text-gray-800 mb-2">QR Code</h4>
-                      <img
-                        src={viewingWorker.qrCode}
-                        alt="Worker QR Code"
-                        className="w-32 h-32 border rounded-lg"
-                      />
+                      <div className="flex items-center space-x-4">
+                        <img
+                          src={viewingWorker.qrCode}
+                          alt="Worker QR Code"
+                          className="w-32 h-32 border rounded-lg"
+                        />
+                        <div className="space-y-2">
+                          <button
+                            onClick={() => downloadQRCode(viewingWorker)}
+                            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105 shadow-lg w-full"
+                          >
+                            📥 Download QR Code
+                          </button>
+                          <p className="text-xs text-gray-500">
+                            Download as PNG format<br />
+                            File: {viewingWorker.workerId}_{viewingWorker.name.replace(/\s+/g, '_')}_QR.png
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
