@@ -1,53 +1,58 @@
-const PDFDocument = require("pdfkit");
+const { generateReportFile } = require("../services/reportService");
 const fs = require("fs");
-const path = require("path");
 
 exports.generateReport = async (req, res) => {
   try {
-    const { topic, tableData } = req.body;
+    const { topic, tableData, companyInfo, metadata } = req.body;
 
-    // Ensure reports folder exists
-    const reportsDir = path.join(__dirname, "../reports");
-    if (!fs.existsSync(reportsDir)) {
-      fs.mkdirSync(reportsDir);
+    // Validate input data
+    if (!topic || !tableData || !Array.isArray(tableData) || tableData.length === 0) {
+      return res.status(400).json({
+        error: "Invalid input data. Topic and table data are required."
+      });
     }
 
-    const doc = new PDFDocument();
-    const fileName = `report_${Date.now()}.pdf`;
-    const filePath = path.join(reportsDir, fileName);
-
-    const stream = fs.createWriteStream(filePath);
-    doc.pipe(stream);
-
-    // Header
-    doc.fontSize(18).text("Company Name", { align: "center" });
-    doc.fontSize(12).text("Slogan", { align: "center" });
-    doc.moveDown();
-
-    doc.fontSize(10).text(`Date: ${new Date().toLocaleDateString()}`);
-    doc.text(`Time: ${new Date().toLocaleTimeString()}`);
-    doc.moveDown();
-
-    // Topic
-    doc.fontSize(14).text(topic, { underline: true, align: "center" });
-    doc.moveDown();
-
-    // Table Data
-    tableData.forEach((row, idx) => {
-      doc.text(`${idx + 1}. ${JSON.stringify(row)}`);
+    // Generate the professional PDF report
+    const filePath = await generateReportFile(topic, tableData, {
+      ...metadata,
+      companyInfo: companyInfo || {
+        name: "WORKFLOWS ENGINEERING",
+        subtitle: "Equipment & Tool Management"
+      }
     });
 
-    doc.moveDown();
-    doc.text("Signature: __________________", { align: "right" });
-    doc.text("Stock Manager", { align: "right" });
+    // Set response headers for PDF download
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="Professional_Report_${Date.now()}.pdf"`);
+    res.setHeader('Cache-Control', 'no-cache');
 
-    doc.end();
+    // Send file to client
+    res.download(filePath, `Professional_Report_${Date.now()}.pdf`, (err) => {
+      if (err) {
+        console.error("Download error:", err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: "Failed to download report" });
+        }
+      }
 
-    stream.on("finish", () => {
-      res.download(filePath); // send file to client
+      // Clean up the file after download (optional - you might want to keep reports)
+      setTimeout(() => {
+        if (fs.existsSync(filePath)) {
+          try {
+            fs.unlinkSync(filePath);
+            console.log(`Report file cleaned up: ${filePath}`);
+          } catch (unlinkError) {
+            console.error("Failed to clean up report file:", unlinkError);
+          }
+        }
+      }, 60000); // Delete after 1 minute
     });
-  } catch (err) {
-    console.error("Report error:", err);
-    res.status(500).json({ error: err.message });
+
+  } catch (error) {
+    console.error("Report generation error:", error);
+    res.status(500).json({
+      error: "Failed to generate report",
+      details: error.message
+    });
   }
 };

@@ -76,11 +76,13 @@ export default function Workers() {
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation
+    // Name validation - only letters and spaces, no numbers or special characters
     if (!form.name.trim()) {
       newErrors.name = "Name is required";
     } else if (!/^[A-Za-z\s]+$/.test(form.name.trim())) {
-      newErrors.name = "Name should contain only letters and spaces";
+      newErrors.name = "Name should contain only letters and spaces (no numbers or special characters)";
+    } else if (form.name.trim().length < 2) {
+      newErrors.name = "Name should be at least 2 characters long";
     }
 
     // DOB validation
@@ -95,11 +97,16 @@ export default function Workers() {
       }
     }
 
-    // Phone validation
+    // Phone validation - exactly 10 digits only
     if (!form.phone.trim()) {
       newErrors.phone = "Phone number is required";
-    } else if (!/^\d{10}$/.test(form.phone.trim().replace(/\D/g, ""))) {
-      newErrors.phone = "Phone number should be 10 digits";
+    } else {
+      const phoneDigits = form.phone.trim().replace(/\D/g, "");
+      if (phoneDigits.length !== 10) {
+        newErrors.phone = "Phone number must be exactly 10 digits";
+      } else if (!/^\d{10}$/.test(phoneDigits)) {
+        newErrors.phone = "Phone number should contain only digits";
+      }
     }
 
     // Role validation
@@ -107,11 +114,28 @@ export default function Workers() {
       newErrors.role = "Role is required";
     }
 
-    // Email validation (if provided)
+    // Email validation - require @ and restrict special characters
     if (form.contactInfo && form.contactInfo.trim()) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(form.contactInfo.trim())) {
-        newErrors.contactInfo = "Please enter a valid email address";
+      const email = form.contactInfo.trim();
+      // Check if @ symbol exists
+      if (!email.includes('@')) {
+        newErrors.contactInfo = "Email must contain @ symbol";
+      } else {
+        // Basic email format with restricted special characters
+        const emailRegex = /^[a-zA-Z0-9._]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email)) {
+          newErrors.contactInfo = "Invalid email format. Only letters, numbers, dots, and underscores allowed (no !#$%- symbols)";
+        }
+      }
+    }
+
+    // Emergency contact validation - exactly 10 digits if provided
+    if (form.emergencyDetails && form.emergencyDetails.trim()) {
+      const emergencyDigits = form.emergencyDetails.trim().replace(/\D/g, "");
+      if (emergencyDigits.length > 0 && emergencyDigits.length !== 10) {
+        newErrors.emergencyDetails = "Emergency contact must be exactly 10 digits";
+      } else if (emergencyDigits.length > 0 && !/^\d{10}$/.test(emergencyDigits)) {
+        newErrors.emergencyDetails = "Emergency contact should contain only digits";
       }
     }
 
@@ -126,7 +150,21 @@ export default function Workers() {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm({ ...form, [name]: value });
+    let processedValue = value;
+
+    // Process input based on field type
+    if (name === 'phone' || name === 'emergencyDetails') {
+      // Allow only digits for phone numbers
+      processedValue = value.replace(/\D/g, '').slice(0, 10);
+    } else if (name === 'name') {
+      // Allow only letters and spaces for name
+      processedValue = value.replace(/[^A-Za-z\s]/g, '');
+    } else if (name === 'contactInfo') {
+      // Allow only valid email characters (letters, numbers, @, ., _)
+      processedValue = value.replace(/[^a-zA-Z0-9@._]/g, '');
+    }
+
+    setForm({ ...form, [name]: processedValue });
 
     // Clear error for this field when user starts typing
     if (errors[name]) {
@@ -301,31 +339,31 @@ export default function Workers() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-yellow-50 p-6">
+    <div className="min-h-screen p-6 bg-gradient-to-br from-orange-50 to-yellow-50">
       {/* Header */}
       <div className="mb-8">
-        <div className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white p-6 rounded-lg shadow-lg">
+        <div className="p-6 text-white rounded-lg shadow-lg bg-gradient-to-r from-orange-400 to-yellow-400">
           <h1 className="text-3xl font-bold">WORKFLOWS ENGINEERING</h1>
-          <p className="text-orange-100 mt-1">Equipment & Tool Management</p>
+          <p className="mt-1 text-orange-100">Equipment & Tool Management</p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-6">
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+      <div className="mx-auto max-w-7xl">
+        <div className="p-6 mb-6 bg-white shadow-lg rounded-xl">
+          <h2 className="mb-2 text-2xl font-bold text-gray-800">
             Worker Management
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="mb-6 text-gray-600">
             Manage your workforce, track employee details, and monitor work
             schedules with ease.
           </p>
         </div>
 
         {/* Form Section */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
+        <div className="p-6 mb-8 bg-white shadow-lg rounded-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
-              <div className="bg-gradient-to-r from-orange-400 to-yellow-400 p-2 rounded-lg mr-3">
+              <div className="p-2 mr-3 rounded-lg bg-gradient-to-r from-orange-400 to-yellow-400">
                 <svg
                   className="w-5 h-5 text-white"
                   fill="currentColor"
@@ -341,14 +379,14 @@ export default function Workers() {
             {editing && (
               <button
                 onClick={resetForm}
-                className="bg-gray-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-gray-600 transition-all"
+                className="px-4 py-2 font-medium text-white transition-all bg-gray-500 rounded-lg hover:bg-gray-600"
               >
                 Cancel Edit
               </button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700">
                 Worker ID *
@@ -359,13 +397,13 @@ export default function Workers() {
                 value={form.workerId}
                 onChange={handleChange}
                 disabled={true} // Always disable Worker ID field
-                className="w-full border rounded-lg p-3 transition-all bg-gray-100 cursor-not-allowed"
+                className="w-full p-3 transition-all bg-gray-100 border rounded-lg cursor-not-allowed"
               />
               <p className="text-xs text-gray-500">
                 {editing ? "Worker ID cannot be modified after creation" : "Worker ID will be auto-generated"}
               </p>
               {errors.workerId && (
-                <p className="text-red-500 text-xs">{errors.workerId}</p>
+                <p className="text-xs text-red-500">{errors.workerId}</p>
               )}
             </div>
 
@@ -375,13 +413,13 @@ export default function Workers() {
               </label>
               <input
                 name="name"
-                placeholder="Enter full name"
+                placeholder="Enter full name (letters and spaces only)"
                 value={form.name}
                 onChange={handleChange}
                 className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.name ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.name && <p className="text-red-500 text-xs">{errors.name}</p>}
+              {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
@@ -396,7 +434,7 @@ export default function Workers() {
                 className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.dob ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.dob && <p className="text-red-500 text-xs">{errors.dob}</p>}
+              {errors.dob && <p className="text-xs text-red-500">{errors.dob}</p>}
             </div>
 
             <div className="space-y-2">
@@ -406,14 +444,14 @@ export default function Workers() {
               <input
                 name="contactInfo"
                 type="email"
-                placeholder="Enter email address"
+                placeholder="Enter email address (e.g., user@example.com)"
                 value={form.contactInfo}
                 onChange={handleChange}
                 className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.contactInfo ? "border-red-500" : "border-gray-300"
                   }`}
               />
               {errors.contactInfo && (
-                <p className="text-red-500 text-xs">{errors.contactInfo}</p>
+                <p className="text-xs text-red-500">{errors.contactInfo}</p>
               )}
             </div>
 
@@ -423,11 +461,16 @@ export default function Workers() {
               </label>
               <input
                 name="emergencyDetails"
-                placeholder="Emergency contact details"
+                placeholder="Enter 10-digit emergency contact number"
                 value={form.emergencyDetails}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                maxLength="10"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.emergencyDetails ? "border-red-500" : "border-gray-300"
+                  }`}
               />
+              {errors.emergencyDetails && (
+                <p className="text-xs text-red-500">{errors.emergencyDetails}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -449,7 +492,7 @@ export default function Workers() {
                 <option value="Technician">Technician</option>
                 <option value="Operator">Operator</option>
               </select>
-              {errors.role && <p className="text-red-500 text-xs">{errors.role}</p>}
+              {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
             </div>
 
             <div className="space-y-2">
@@ -461,10 +504,11 @@ export default function Workers() {
                 placeholder="Enter 10-digit phone number"
                 value={form.phone}
                 onChange={handleChange}
+                maxLength="10"
                 className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.phone ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.phone && <p className="text-red-500 text-xs">{errors.phone}</p>}
+              {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
             </div>
 
             <div className="space-y-2">
@@ -479,7 +523,7 @@ export default function Workers() {
                 className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.hireDate ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.hireDate && <p className="text-red-500 text-xs">{errors.hireDate}</p>}
+              {errors.hireDate && <p className="text-xs text-red-500">{errors.hireDate}</p>}
             </div>
 
             <div className="space-y-2">
@@ -490,7 +534,7 @@ export default function Workers() {
                 name="shiftSchedule"
                 value={form.shiftSchedule}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all"
+                className="w-full p-3 transition-all border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent"
               >
                 <option value="">Select Shift</option>
                 <option value="Morning (6 AM - 2 PM)">Morning (6 AM - 2 PM)</option>
@@ -504,7 +548,7 @@ export default function Workers() {
             <button
               onClick={handleSubmit}
               disabled={loading}
-              className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white px-6 py-3 rounded-lg font-medium hover:from-orange-500 hover:to-yellow-500 transition-all transform hover:scale-105 shadow-lg disabled:opacity-50"
+              className="px-6 py-3 font-medium text-white transition-all transform rounded-lg shadow-lg bg-gradient-to-r from-orange-400 to-yellow-400 hover:from-orange-500 hover:to-yellow-500 hover:scale-105 disabled:opacity-50"
             >
               {loading ? "Saving..." : editing ? "Update Worker" : "Add Worker"}
             </button>
@@ -512,14 +556,14 @@ export default function Workers() {
         </div>
 
         {/* Search and Workers Table */}
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-gray-50 to-gray-100 p-6 border-b">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div className="overflow-hidden bg-white shadow-lg rounded-xl">
+          <div className="p-6 border-b bg-gradient-to-r from-gray-50 to-gray-100">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
                 <h3 className="text-xl font-semibold text-gray-800">
                   Workers Directory
                 </h3>
-                <p className="text-gray-600 text-sm mt-1">
+                <p className="mt-1 text-sm text-gray-600">
                   Total Workers: {workers.length} | Showing: {filteredWorkers.length}
                 </p>
               </div>
@@ -527,7 +571,7 @@ export default function Workers() {
                 {/* <button
                   onClick={downloadAllQRCodes}
                   disabled={filteredWorkers.length === 0}
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:from-purple-600 hover:to-blue-600 transition-all transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 text-sm font-medium text-white transition-all transform rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   📥 Download All QRs
                 </button> */}
@@ -537,7 +581,7 @@ export default function Workers() {
                     placeholder="Search workers..."
                     value={searchQuery}
                     onChange={handleSearch}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent"
+                    className="py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                   />
                   <svg
                     className="w-5 h-5 text-gray-400 absolute left-3 top-2.5"
@@ -561,25 +605,25 @@ export default function Workers() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Worker ID
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Name
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Role
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Phone
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Hire Date
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     QR Code
                   </th>
-                  <th className="text-left p-4 font-semibold text-gray-700">
+                  <th className="p-4 font-semibold text-left text-gray-700">
                     Actions
                   </th>
                 </tr>
@@ -587,10 +631,10 @@ export default function Workers() {
               <tbody>
                 {filteredWorkers.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center p-8 text-gray-500">
+                    <td colSpan="7" className="p-8 text-center text-gray-500">
                       <div className="flex flex-col items-center">
                         <svg
-                          className="w-12 h-12 text-gray-300 mb-3"
+                          className="w-12 h-12 mb-3 text-gray-300"
                           fill="currentColor"
                           viewBox="0 0 20 20"
                         >
@@ -614,7 +658,7 @@ export default function Workers() {
                       <td className="p-4 font-medium text-gray-900">{w.workerId}</td>
                       <td className="p-4 text-gray-800">{w.name}</td>
                       <td className="p-4">
-                        <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-sm font-medium">
+                        <span className="px-2 py-1 text-sm font-medium text-orange-800 bg-orange-100 rounded-full">
                           {w.role}
                         </span>
                       </td>
@@ -632,33 +676,33 @@ export default function Workers() {
                             />
                             <button
                               onClick={() => downloadQRCode(w)}
-                              className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-2 py-1 rounded text-xs font-medium hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105"
+                              className="px-2 py-1 text-xs font-medium text-white transition-all transform rounded bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 hover:scale-105"
                               title="Download QR Code"
                             >
                               📥
                             </button>
                           </div>
                         ) : (
-                          <span className="text-gray-400 text-sm">No QR</span>
+                          <span className="text-sm text-gray-400">No QR</span>
                         )}
                       </td>
                       <td className="p-4">
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleView(w._id)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-all transform hover:scale-105"
+                            className="px-3 py-1 text-sm font-medium text-white transition-all transform bg-blue-500 rounded-lg hover:bg-blue-600 hover:scale-105"
                           >
                             View
                           </button>
                           <button
                             onClick={() => handleEdit(w)}
-                            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-all transform hover:scale-105"
+                            className="px-3 py-1 text-sm font-medium text-white transition-all transform bg-green-500 rounded-lg hover:bg-green-600 hover:scale-105"
                           >
                             Edit
                           </button>
                           <button
                             onClick={() => handleDelete(w._id)}
-                            className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-medium transition-all transform hover:scale-105"
+                            className="px-3 py-1 text-sm font-medium text-white transition-all transform bg-red-500 rounded-lg hover:bg-red-600 hover:scale-105"
                           >
                             Delete
                           </button>
@@ -675,17 +719,17 @@ export default function Workers() {
 
       {/* Worker Details Modal */}
       {viewingWorker && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full m-4 max-h-90vh overflow-y-auto">
-            <div className="bg-gradient-to-r from-orange-400 to-yellow-400 text-white p-6 rounded-t-xl">
-              <div className="flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="w-full max-w-2xl m-4 overflow-y-auto bg-white shadow-2xl rounded-xl max-h-90vh">
+            <div className="p-6 text-white bg-gradient-to-r from-orange-400 to-yellow-400 rounded-t-xl">
+              <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold">{viewingWorker.name}</h3>
                   <p className="text-orange-100">Worker ID: {viewingWorker.workerId}</p>
                 </div>
                 <button
                   onClick={() => setViewingWorker(null)}
-                  className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-lg"
+                  className="p-2 text-white rounded-lg hover:bg-white hover:bg-opacity-20"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -695,10 +739,10 @@ export default function Workers() {
             </div>
 
             <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Personal Information</h4>
+                    <h4 className="mb-2 font-semibold text-gray-800">Personal Information</h4>
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Name:</span> {viewingWorker.name}</p>
                       <p><span className="font-medium">Date of Birth:</span> {viewingWorker.dob ? new Date(viewingWorker.dob).toLocaleDateString() : "N/A"}</p>
@@ -708,7 +752,7 @@ export default function Workers() {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Contact Information</h4>
+                    <h4 className="mb-2 font-semibold text-gray-800">Contact Information</h4>
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Phone:</span> {viewingWorker.contact?.phone || "N/A"}</p>
                       <p><span className="font-medium">Email:</span> {viewingWorker.contact?.email || "N/A"}</p>
@@ -719,7 +763,7 @@ export default function Workers() {
 
                 <div className="space-y-4">
                   <div>
-                    <h4 className="font-semibold text-gray-800 mb-2">Work Information</h4>
+                    <h4 className="mb-2 font-semibold text-gray-800">Work Information</h4>
                     <div className="space-y-2 text-sm">
                       <p><span className="font-medium">Shift Schedule:</span> {viewingWorker.shiftSchedule || "N/A"}</p>
                       <p><span className="font-medium">Compliance Score:</span>
@@ -735,7 +779,7 @@ export default function Workers() {
 
                   {viewingWorker.qrCode && (
                     <div>
-                      <h4 className="font-semibold text-gray-800 mb-2">QR Code</h4>
+                      <h4 className="mb-2 font-semibold text-gray-800">QR Code</h4>
                       <div className="flex items-center space-x-4">
                         <img
                           src={viewingWorker.qrCode}
@@ -745,7 +789,7 @@ export default function Workers() {
                         <div className="space-y-2">
                           <button
                             onClick={() => downloadQRCode(viewingWorker)}
-                            className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-4 py-2 rounded-lg font-medium hover:from-indigo-600 hover:to-purple-600 transition-all transform hover:scale-105 shadow-lg w-full"
+                            className="w-full px-4 py-2 font-medium text-white transition-all transform rounded-lg shadow-lg bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 hover:scale-105"
                           >
                             📥 Download QR Code
                           </button>
