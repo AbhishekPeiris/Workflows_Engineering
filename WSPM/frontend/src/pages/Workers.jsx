@@ -26,15 +26,14 @@ export default function Workers() {
   const [editing, setEditing] = useState(null);
   const [viewingWorker, setViewingWorker] = useState(null);
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState({});
   const [loading, setLoading] = useState(false);
 
-  // Load workers when component mounts
   useEffect(() => {
     loadWorkers();
     loadNextWorkerId();
   }, []);
 
-  // Filter workers based on search
   useEffect(() => {
     if (searchQuery.trim() === "") {
       setFilteredWorkers(workers);
@@ -62,7 +61,6 @@ export default function Workers() {
   };
 
   const loadNextWorkerId = async () => {
-    // Only load next worker ID when NOT editing and workerId is empty
     if (!editing && !form.workerId) {
       try {
         const response = await getNextWorkerId();
@@ -73,76 +71,97 @@ export default function Workers() {
     }
   };
 
+  const validateField = (name, value) => {
+    let error = "";
+
+    switch (name) {
+      case "name":
+        if (!value.trim()) {
+          error = "Name is required";
+        } else if (!/^[A-Za-z\s]+$/.test(value.trim())) {
+          error = "Name should contain only letters and spaces (no numbers or special characters)";
+        } else if (value.trim().length < 2) {
+          error = "Name should be at least 2 characters long";
+        }
+        break;
+
+      case "dob":
+        if (!value) {
+          error = "Date of birth is required";
+        } else {
+          const dobDate = new Date(value);
+          const minDate = new Date("1960-01-01");
+          const maxDate = new Date("2007-12-31");
+
+          if (dobDate < minDate || dobDate > maxDate) {
+            error = "Date of birth must be between 1960 and 2007";
+          }
+        }
+        break;
+
+      case "phone":
+        if (!value.trim()) {
+          error = "Phone number is required";
+        } else {
+          const phoneDigits = value.trim().replace(/\D/g, "");
+          if (phoneDigits.length !== 10) {
+            error = "Phone number must be exactly 10 digits";
+          } else if (!/^\d{10}$/.test(phoneDigits)) {
+            error = "Phone number should contain only digits";
+          }
+        }
+        break;
+
+      case "role":
+        if (!value.trim()) {
+          error = "Role is required";
+        }
+        break;
+
+      case "contactInfo":
+        if (value && value.trim()) {
+          const email = value.trim();
+          if (!email.includes('@')) {
+            error = "Email must contain @ symbol";
+          } else {
+            const emailRegex = /^[a-zA-Z0-9._]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailRegex.test(email)) {
+              error = "Invalid email format. Only letters, numbers, dots, and underscores allowed (no !#$%- symbols)";
+            }
+          }
+        }
+        break;
+
+      case "emergencyDetails":
+        if (value && value.trim()) {
+          const emergencyDigits = value.trim().replace(/\D/g, "");
+          if (emergencyDigits.length > 0 && emergencyDigits.length !== 10) {
+            error = "Emergency contact must be exactly 10 digits";
+          } else if (emergencyDigits.length > 0 && !/^\d{10}$/.test(emergencyDigits)) {
+            error = "Emergency contact should contain only digits";
+          }
+        }
+        break;
+
+      case "hireDate":
+        if (!value) {
+          error = "Hire date is required";
+        }
+        break;
+    }
+
+    return error;
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
-    // Name validation - only letters and spaces, no numbers or special characters
-    if (!form.name.trim()) {
-      newErrors.name = "Name is required";
-    } else if (!/^[A-Za-z\s]+$/.test(form.name.trim())) {
-      newErrors.name = "Name should contain only letters and spaces (no numbers or special characters)";
-    } else if (form.name.trim().length < 2) {
-      newErrors.name = "Name should be at least 2 characters long";
-    }
-
-    // DOB validation
-    if (!form.dob) {
-      newErrors.dob = "Date of birth is required";
-    } else {
-      const dobDate = new Date(form.dob);
-      const today = new Date();
-      const age = today.getFullYear() - dobDate.getFullYear();
-      if (age < 18 || age > 65) {
-        newErrors.dob = "Age should be between 18 and 65 years";
+    Object.keys(form).forEach(key => {
+      const error = validateField(key, form[key]);
+      if (error) {
+        newErrors[key] = error;
       }
-    }
-
-    // Phone validation - exactly 10 digits only
-    if (!form.phone.trim()) {
-      newErrors.phone = "Phone number is required";
-    } else {
-      const phoneDigits = form.phone.trim().replace(/\D/g, "");
-      if (phoneDigits.length !== 10) {
-        newErrors.phone = "Phone number must be exactly 10 digits";
-      } else if (!/^\d{10}$/.test(phoneDigits)) {
-        newErrors.phone = "Phone number should contain only digits";
-      }
-    }
-
-    // Role validation
-    if (!form.role.trim()) {
-      newErrors.role = "Role is required";
-    }
-
-    // Email validation - require @ and restrict special characters
-    if (form.contactInfo && form.contactInfo.trim()) {
-      const email = form.contactInfo.trim();
-      // Check if @ symbol exists
-      if (!email.includes('@')) {
-        newErrors.contactInfo = "Email must contain @ symbol";
-      } else {
-        // Basic email format with restricted special characters
-        const emailRegex = /^[a-zA-Z0-9._]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-        if (!emailRegex.test(email)) {
-          newErrors.contactInfo = "Invalid email format. Only letters, numbers, dots, and underscores allowed (no !#$%- symbols)";
-        }
-      }
-    }
-
-    // Emergency contact validation - exactly 10 digits if provided
-    if (form.emergencyDetails && form.emergencyDetails.trim()) {
-      const emergencyDigits = form.emergencyDetails.trim().replace(/\D/g, "");
-      if (emergencyDigits.length > 0 && emergencyDigits.length !== 10) {
-        newErrors.emergencyDetails = "Emergency contact must be exactly 10 digits";
-      } else if (emergencyDigits.length > 0 && !/^\d{10}$/.test(emergencyDigits)) {
-        newErrors.emergencyDetails = "Emergency contact should contain only digits";
-      }
-    }
-
-    // Hire date validation
-    if (!form.hireDate) {
-      newErrors.hireDate = "Hire date is required";
-    }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -152,27 +171,34 @@ export default function Workers() {
     const { name, value } = e.target;
     let processedValue = value;
 
-    // Process input based on field type
     if (name === 'phone' || name === 'emergencyDetails') {
-      // Allow only digits for phone numbers
       processedValue = value.replace(/\D/g, '').slice(0, 10);
-    } else if (name === 'name') {
-      // Allow only letters and spaces for name
-      processedValue = value.replace(/[^A-Za-z\s]/g, '');
     } else if (name === 'contactInfo') {
-      // Allow only valid email characters (letters, numbers, @, ., _)
       processedValue = value.replace(/[^a-zA-Z0-9@._]/g, '');
     }
 
     setForm({ ...form, [name]: processedValue });
+    setTouched({ ...touched, [name]: true });
 
-    // Clear error for this field when user starts typing
-    if (errors[name]) {
-      setErrors({ ...errors, [name]: "" });
-    }
+    const error = validateField(name, processedValue);
+    setErrors({ ...errors, [name]: error });
+  };
+
+  const handleBlur = (e) => {
+    const { name } = e.target;
+    setTouched({ ...touched, [name]: true });
+
+    const error = validateField(name, form[name]);
+    setErrors({ ...errors, [name]: error });
   };
 
   const handleSubmit = async () => {
+    const allTouched = {};
+    Object.keys(form).forEach(key => {
+      allTouched[key] = true;
+    });
+    setTouched(allTouched);
+
     if (!validateForm()) {
       alert("⚠️ Please fix the validation errors before submitting");
       return;
@@ -180,7 +206,6 @@ export default function Workers() {
 
     setLoading(true);
     try {
-      // Prepare the data in the correct format
       const workerData = {
         workerId: form.workerId.trim(),
         name: form.name.trim(),
@@ -201,7 +226,6 @@ export default function Workers() {
         alert("✅ Worker created successfully");
       }
 
-      // Reset form
       resetForm();
       loadWorkers();
     } catch (err) {
@@ -226,7 +250,7 @@ export default function Workers() {
     });
     setEditing(null);
     setErrors({});
-    // Load next worker ID only after form is reset and not editing
+    setTouched({});
     setTimeout(() => {
       loadNextWorkerId();
     }, 100);
@@ -246,6 +270,7 @@ export default function Workers() {
     });
     setEditing(w);
     setErrors({});
+    setTouched({});
   };
 
   const handleView = async (workerId) => {
@@ -274,7 +299,6 @@ export default function Workers() {
     setSearchQuery(e.target.value);
   };
 
-  // Add QR download function
   const downloadQRCode = async (worker) => {
     try {
       if (!worker.qrCode) {
@@ -282,12 +306,9 @@ export default function Workers() {
         return;
       }
 
-      // Create a link element and trigger download
       const link = document.createElement('a');
       link.href = worker.qrCode;
       link.download = `${worker.workerId}_${worker.name.replace(/\s+/g, '_')}_QR.png`;
-
-      // Append to body, click, and remove
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -299,48 +320,8 @@ export default function Workers() {
     }
   };
 
-  // Add bulk QR download function
-  const downloadAllQRCodes = async () => {
-    if (filteredWorkers.length === 0) {
-      alert("❌ No workers to download QR codes for");
-      return;
-    }
-
-    const workersWithQR = filteredWorkers.filter(w => w.qrCode);
-    if (workersWithQR.length === 0) {
-      alert("❌ No QR codes available to download");
-      return;
-    }
-
-    if (!window.confirm(`Download QR codes for ${workersWithQR.length} workers?`)) {
-      return;
-    }
-
-    try {
-      // Download each QR code with a small delay to prevent browser blocking
-      for (let i = 0; i < workersWithQR.length; i++) {
-        const worker = workersWithQR[i];
-
-        setTimeout(() => {
-          const link = document.createElement('a');
-          link.href = worker.qrCode;
-          link.download = `${worker.workerId}_${worker.name.replace(/\s+/g, '_')}_QR.png`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-        }, i * 200); // 200ms delay between each download
-      }
-
-      alert(`✅ Downloading ${workersWithQR.length} QR codes...`);
-    } catch (error) {
-      console.error("Bulk download failed:", error);
-      alert("❌ Failed to download QR codes");
-    }
-  };
-
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-orange-50 to-yellow-50">
-      {/* Header */}
       <div className="mb-8">
         <div className="p-6 text-white rounded-lg shadow-lg bg-gradient-to-r from-orange-400 to-yellow-400">
           <h1 className="text-3xl font-bold">WORKFLOWS ENGINEERING</h1>
@@ -350,25 +331,17 @@ export default function Workers() {
 
       <div className="mx-auto max-w-7xl">
         <div className="p-6 mb-6 bg-white shadow-lg rounded-xl">
-          <h2 className="mb-2 text-2xl font-bold text-gray-800">
-            Worker Management
-          </h2>
+          <h2 className="mb-2 text-2xl font-bold text-gray-800">Worker Management</h2>
           <p className="mb-6 text-gray-600">
-            Manage your workforce, track employee details, and monitor work
-            schedules with ease.
+            Manage your workforce, track employee details, and monitor work schedules with ease.
           </p>
         </div>
 
-        {/* Form Section */}
         <div className="p-6 mb-8 bg-white shadow-lg rounded-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <div className="p-2 mr-3 rounded-lg bg-gradient-to-r from-orange-400 to-yellow-400">
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z" />
                 </svg>
               </div>
@@ -377,10 +350,7 @@ export default function Workers() {
               </h3>
             </div>
             {editing && (
-              <button
-                onClick={resetForm}
-                className="px-4 py-2 font-medium text-white transition-all bg-gray-500 rounded-lg hover:bg-gray-600"
-              >
+              <button onClick={resetForm} className="px-4 py-2 font-medium text-white transition-all bg-gray-500 rounded-lg hover:bg-gray-600">
                 Cancel Edit
               </button>
             )}
@@ -388,87 +358,81 @@ export default function Workers() {
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Worker ID *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Worker ID *</label>
               <input
                 name="workerId"
                 placeholder={editing ? "Worker ID (cannot be changed)" : "Auto-generated"}
                 value={form.workerId}
                 onChange={handleChange}
-                disabled={true} // Always disable Worker ID field
+                disabled={true}
                 className="w-full p-3 transition-all bg-gray-100 border rounded-lg cursor-not-allowed"
               />
               <p className="text-xs text-gray-500">
                 {editing ? "Worker ID cannot be modified after creation" : "Worker ID will be auto-generated"}
               </p>
-              {errors.workerId && (
-                <p className="text-xs text-red-500">{errors.workerId}</p>
-              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Full Name *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Full Name *</label>
               <input
                 name="name"
                 placeholder="Enter full name (letters and spaces only)"
                 value={form.name}
                 onChange={handleChange}
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.name ? "border-red-500" : "border-gray-300"
+                onBlur={handleBlur}
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.name && errors.name ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
+              {touched.name && errors.name && <p className="text-xs text-red-500">{errors.name}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Date of Birth *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Date of Birth *</label>
               <input
                 type="date"
                 name="dob"
                 value={form.dob}
                 onChange={handleChange}
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.dob ? "border-red-500" : "border-gray-300"
+                onBlur={handleBlur}
+                min="1960-01-01"
+                max="2007-12-31"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.dob && errors.dob ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.dob && <p className="text-xs text-red-500">{errors.dob}</p>}
+              {touched.dob && errors.dob && <p className="text-xs text-red-500">{errors.dob}</p>}
+              <p className="text-xs text-gray-500">Select date between 1960 and 2007</p>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Email Address
-              </label>
+              <label className="text-sm font-medium text-gray-700">Email Address</label>
               <input
                 name="contactInfo"
                 type="email"
                 placeholder="Enter email address (e.g., user@example.com)"
                 value={form.contactInfo}
                 onChange={handleChange}
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.contactInfo ? "border-red-500" : "border-gray-300"
+                onBlur={handleBlur}
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.contactInfo && errors.contactInfo ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.contactInfo && (
+              {touched.contactInfo && errors.contactInfo && (
                 <p className="text-xs text-red-500">{errors.contactInfo}</p>
               )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Emergency Contact
-              </label>
+              <label className="text-sm font-medium text-gray-700">Emergency Contact</label>
               <input
                 name="emergencyDetails"
                 placeholder="Enter 10-digit emergency contact number"
                 value={form.emergencyDetails}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 maxLength="10"
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.emergencyDetails ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.emergencyDetails && errors.emergencyDetails ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.emergencyDetails && (
+              {touched.emergencyDetails && errors.emergencyDetails && (
                 <p className="text-xs text-red-500">{errors.emergencyDetails}</p>
               )}
             </div>
@@ -479,7 +443,8 @@ export default function Workers() {
                 name="role"
                 value={form.role}
                 onChange={handleChange}
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.role ? "border-red-500" : "border-gray-300"
+                onBlur={handleBlur}
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.role && errors.role ? "border-red-500" : "border-gray-300"
                   }`}
               >
                 <option value="">Select Role</option>
@@ -492,44 +457,40 @@ export default function Workers() {
                 <option value="Technician">Technician</option>
                 <option value="Operator">Operator</option>
               </select>
-              {errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
+              {touched.role && errors.role && <p className="text-xs text-red-500">{errors.role}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Phone Number *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Phone Number *</label>
               <input
                 name="phone"
                 placeholder="Enter 10-digit phone number"
                 value={form.phone}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 maxLength="10"
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.phone ? "border-red-500" : "border-gray-300"
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.phone && errors.phone ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
+              {touched.phone && errors.phone && <p className="text-xs text-red-500">{errors.phone}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Hire Date *
-              </label>
+              <label className="text-sm font-medium text-gray-700">Hire Date *</label>
               <input
                 type="date"
                 name="hireDate"
                 value={form.hireDate}
                 onChange={handleChange}
-                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${errors.hireDate ? "border-red-500" : "border-gray-300"
+                onBlur={handleBlur}
+                className={`w-full border rounded-lg p-3 focus:ring-2 focus:ring-orange-400 focus:border-transparent transition-all ${touched.hireDate && errors.hireDate ? "border-red-500" : "border-gray-300"
                   }`}
               />
-              {errors.hireDate && <p className="text-xs text-red-500">{errors.hireDate}</p>}
+              {touched.hireDate && errors.hireDate && <p className="text-xs text-red-500">{errors.hireDate}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">
-                Shift Schedule
-              </label>
+              <label className="text-sm font-medium text-gray-700">Shift Schedule</label>
               <select
                 name="shiftSchedule"
                 value={form.shiftSchedule}
@@ -555,26 +516,16 @@ export default function Workers() {
           </div>
         </div>
 
-        {/* Search and Workers Table */}
         <div className="overflow-hidden bg-white shadow-lg rounded-xl">
           <div className="p-6 border-b bg-gradient-to-r from-gray-50 to-gray-100">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <h3 className="text-xl font-semibold text-gray-800">
-                  Workers Directory
-                </h3>
+                <h3 className="text-xl font-semibold text-gray-800">Workers Directory</h3>
                 <p className="mt-1 text-sm text-gray-600">
                   Total Workers: {workers.length} | Showing: {filteredWorkers.length}
                 </p>
               </div>
               <div className="flex items-center space-x-2">
-                {/* <button
-                  onClick={downloadAllQRCodes}
-                  disabled={filteredWorkers.length === 0}
-                  className="px-4 py-2 text-sm font-medium text-white transition-all transform rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  📥 Download All QRs
-                </button> */}
                 <div className="relative">
                   <input
                     type="text"
@@ -583,18 +534,8 @@ export default function Workers() {
                     onChange={handleSearch}
                     className="py-2 pl-10 pr-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-transparent"
                   />
-                  <svg
-                    className="w-5 h-5 text-gray-400 absolute left-3 top-2.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
+                  <svg className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                   </svg>
                 </div>
               </div>
@@ -605,27 +546,13 @@ export default function Workers() {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Worker ID
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Name
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Role
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Phone
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Hire Date
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    QR Code
-                  </th>
-                  <th className="p-4 font-semibold text-left text-gray-700">
-                    Actions
-                  </th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Worker ID</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Name</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Role</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Phone</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Hire Date</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">QR Code</th>
+                  <th className="p-4 font-semibold text-left text-gray-700">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -633,11 +560,7 @@ export default function Workers() {
                   <tr>
                     <td colSpan="7" className="p-8 text-center text-gray-500">
                       <div className="flex flex-col items-center">
-                        <svg
-                          className="w-12 h-12 mb-3 text-gray-300"
-                          fill="currentColor"
-                          viewBox="0 0 20 20"
-                        >
+                        <svg className="w-12 h-12 mb-3 text-gray-300" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <p>
@@ -669,11 +592,7 @@ export default function Workers() {
                       <td className="p-4">
                         {w.qrCode ? (
                           <div className="flex items-center space-x-2">
-                            <img
-                              src={w.qrCode}
-                              alt="QR Code"
-                              className="w-8 h-8 border rounded"
-                            />
+                            <img src={w.qrCode} alt="QR Code" className="w-8 h-8 border rounded" />
                             <button
                               onClick={() => downloadQRCode(w)}
                               className="px-2 py-1 text-xs font-medium text-white transition-all transform rounded bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 hover:scale-105"
@@ -717,7 +636,6 @@ export default function Workers() {
         </div>
       </div>
 
-      {/* Worker Details Modal */}
       {viewingWorker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
           <div className="w-full max-w-2xl m-4 overflow-y-auto bg-white shadow-2xl rounded-xl max-h-90vh">
@@ -768,8 +686,8 @@ export default function Workers() {
                       <p><span className="font-medium">Shift Schedule:</span> {viewingWorker.shiftSchedule || "N/A"}</p>
                       <p><span className="font-medium">Compliance Score:</span>
                         <span className={`ml-2 px-2 py-1 rounded-full text-xs ${viewingWorker.complianceScore >= 90 ? 'bg-green-100 text-green-800' :
-                          viewingWorker.complianceScore >= 70 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'
+                            viewingWorker.complianceScore >= 70 ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-red-100 text-red-800'
                           }`}>
                           {viewingWorker.complianceScore}%
                         </span>
